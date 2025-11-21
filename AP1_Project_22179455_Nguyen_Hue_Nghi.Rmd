@@ -1,0 +1,282 @@
+---
+title: "AP-T225WSD-1_Project Trimester 2 2025"
+author: " Nguyen Hue Nghi- 22179455"
+output:
+  word_document: default
+  pdf_document: default
+date: "2025-11-21"
+---
+By including this statement, we the authors of this work, verify that:
+
+• We hold a copy of this assignment that we can produce if the original is lost or damaged.
+
+• We hereby certify that no part of this assignment/product has been copied from any other student’s work or from any other source except where due acknowledgement is made in the assignment.
+
+• No part of this assignment/product has been written/produced for us by another person except where such collaboration has been authorised by the subject lecturer/tutor concerned.
+
+• We are aware that this work may be reproduced and submitted to plagiarism detection software programs for the purpose of detecting possible plagiarism (which may retain a copy on its database for future plagiarism checking).
+
+• We hereby certify that we have read and understand what the School of Computing, Engineering and Mathematics defines as minor and substantial breaches of misconduct as outlined in the learning guide for this unit.
+
+--------------
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+library(tidyverse)
+library(tidyverse)
+library(ggplot2)
+```
+
+# Question 1. Write the code to inspect the data structure and present the data
+
+## 1.1 The missing values in the dataset were written as "?", replace any "?" with NA Write code to check: after replacing, how many rows were affected in total?  Does this change alter the data distribution?
+```{r}
+# Replace ? with NA when reading data
+engine_df <- read_csv("Engine.csv", na = "?")
+auto_df <- read_csv("Automobile.csv", na = "?")
+maint_df <- read_csv("Maintenance.csv", na = "?")
+
+# total rows were affected
+rows_affected_engine <- engine_df %>% 
+  filter(if_any(everything(), is.na)) %>% 
+  nrow()
+
+rows_affected_auto <- auto_df %>% 
+  filter(if_any(everything(), is.na)) %>% 
+  nrow()
+
+rows_affected_maint <- maint_df %>% 
+  filter(if_any(everything(), is.na)) %>% 
+  nrow()
+
+total_affected <- rows_affected_engine+ rows_affected_auto + rows_affected_maint
+print(total_affected)
+```
+This change does not alter the data distribution but to clean and improve it due to: 
+
+- Only representation changing: Replacing ? with NA is a data cleaning step. This change only clean the data so the R can correctly identify these values as "missing" rather than treating them as valid character strings
+
+- Restoration of correct data types: If ? appear in numeric columns such as Horsepower, the whole column will be misunderstood as character. So changing it to NA, columns will restore to numeric
+
+- Preservation of observed values: This step does not adding, removing, or modifying any of the existing valid data points. Therefore, the frequency, range, and shape of the distribution for the known values remain exactly the same.
+
+## 1.2 Convert categorical variables BodyStyles, FuelTypes, ErrorCodes to factors
+```{r}
+# Convert the categorical variables of the 3 datasets into factors
+auto_df$BodyStyles <- as.factor(auto_df$BodyStyles)
+engine_df$FuelTypes <- as.factor(engine_df$FuelTypes)
+maint_df$ErrorCodes <- as.factor(maint_df$ErrorCodes)
+# Check again to see if they have become factors
+str(auto_df$BodyStyles)
+str(engine_df$FuelTypes)
+str(maint_df$ErrorCodes)
+```
+Benefits of switching to factor
+
+- Helps statistical and plotting functions (ggplot2) understand that these are separate groups to color or divide columns, instead of mistaking them as text or numeric.
+
+- Especially with ErrorCodes (error -1, 0, 1), if not switched to factor, R will understand them as numbers and calculate addition, subtraction, multiplication and division (e.g., average of error codes), which is logically meaningless
+
+## 1.3 Replace the missing values in column Horsepower with the median horsepower; Select the appropriate chart type and display: horsepower distribution.
+```{r}
+# Calculate median, excluding NA (because including it will make it difficult to determine the median)
+median_hp <- median(engine_df$Horsepower, na.rm = TRUE)
+# Replace NA with median
+engine_df <- engine_df %>%
+  mutate( Horsepower = replace_na(Horsepower, median_hp)
+)
+# Check if everything has been replaced
+print(engine_df$Horsepower)
+
+# Visualize the Horsepower distribution using histogram
+# Using plot in library("ggplot2")
+ggplot(data = engine_df) + 
+  geom_histogram(mapping = aes(x = Horsepower), binwidth = 10, col = "black", fill="steelblue") +
+  labs(title = "Horsepower distribution", 
+       x = "Horsepower",
+       y = "Frequency")
+```
+
+Because Horsepower is continuous from 48 to 288 so histogram is the standard and most intuitive tool to display the frequency distribution. It shows us where the data's peak, spread and shape of the distribution (symmetrical or skewed)
+
+Looking at the graph above, we see that the graph is right-skewed, meaning that most of the cars have low to medium horsepower and it decreases as the horsepower increases. The most common horsepower is in the range of 60-100. This shows that most of the popular cars are in this range to save fuel and cost.
+
+
+# Question 2
+## 2.1 Write the code to analyse the distribution of the horsepower across the engine types
+```{r}
+# Observe means Horsepower divided by EngineType before plotting
+aggregate(Horsepower~EngineType, engine_df, mean)
+
+# Visualize Horsepower distribution across EngineTypes using histogram 
+ggplot(data = engine_df) + 
+  geom_histogram(mapping = aes(x = Horsepower), binwidth = 5, col = "black", fill="steelblue", na.rm = TRUE) +
+  facet_wrap(~ EngineType) + 
+  labs(title = "Horsepower distribution across engine types", 
+       x = "Horsepower",
+       y = "Frequency")
+```
+
+## 2.2 Write the code to investigate the distribution of the horsepower across the groups of the engine sizes (e.g., 60-90, 91-190, 191-299, 300+).
+
+```{r}
+# Group engine sizes
+data_with_groups <- engine_df %>%
+  filter(!is.na(EngineSize)) %>% # Filter out car with NA
+  mutate(
+    EngineSize_Group = cut(EngineSize, # Divide EngineSize into discrete bind
+      breaks = c(60, 90, 190, 299, Inf),
+      labels = c("60-90", "91-190", "191-299", "300+"),
+      right = TRUE, # 60 < x <= 90
+      include.lowest = TRUE # 60 <= x <= 90
+    )
+  )
+
+# Check if group division is correct
+print(data_with_groups)
+
+# Viasualize horsepower distribution across the groups of engine sizes using histogram
+ggplot(data = data_with_groups) + 
+  geom_histogram(mapping = aes(x = Horsepower), binwidth = 20, col = "black", fill="steelblue", na.rm = TRUE) +
+  facet_wrap(~ EngineSize_Group) + # tách theo enginesize group
+  labs(title = "Horsepower distribution across groups of the EngineSizes", 
+       x = "Horsepower",
+       y = "Frequency")
+```
+
+## 2.3 Explain findings
+- Engine type: The horsepower distribution is very different. Ohc engines have the widest distribution, ranging from low to medium horsepower. More complex engine types such as ohcv and dohcv tend to concentrate at significantly higher horsepower levels. Rotor engines have a unique horsepower distribution, concentrated around the 100-135 horsepower.
+
+- Engine size: There is a clear positive relationship as engine size increases (from 60-90 to 300+), the horsepower distribution shifts significantly to the right (higher horsepower). The '300+' group has a distinctly high horsepower.
+
+# Question 3
+## 3.1 Do diesel cars have higher average CityMpg than gasoline cars? Provide statistical evidence.
+```{r}
+# Handle duplicates before joining
+engine_df_clean <- engine_df %>%
+  distinct(EngineModel, .keep_all = TRUE) # Remove duplicate rows while keeping other columns
+
+# Join auto_df and engine_df_clean using EngineModel
+auto_engine_df <- left_join(auto_df, engine_df_clean, by = "EngineModel")
+
+
+# Observe means CityMpg divided by FuelTypes before plotting
+aggregate(CityMpg~FuelTypes,auto_engine_df, mean)
+
+
+# Use T-test
+# Hypothesis: H0: Diesel < Gas ; H1:Diesel > Gas
+t_test_result <- t.test(CityMpg ~ FuelTypes, 
+                        data = auto_engine_df, 
+                        var.equal = FALSE, 
+                        alternative = "greater")
+
+print(t_test_result)
+```
+Because p-value = 0.0007118 < 0.05, we reject H0. Therefore, diesel cars have higher average CityMpg than gasoline cars
+
+## 3.2 How does DriveWheels affect fuel efficiency (CityMpg and HighwayMpg)? Elaborate on the findings
+```{r}
+# Observe means of fuel efficiency divided by drivewheel before plotting
+city_mean =aggregate(CityMpg~DriveWheels,auto_engine_df, mean)
+high_mean =aggregate(HighwayMpg~DriveWheels,auto_engine_df, mean)
+
+# Group mpg for plotting
+mpg_group <- auto_df %>%
+  select(DriveWheels, CityMpg, HighwayMpg) %>% # Select a set of columns
+  pivot_longer(cols = c(CityMpg, HighwayMpg), # Specify which columns should be merged
+               names_to = "MpgType", 
+               values_to = "Mpg")
+
+# Viasualize using boxplot
+ggplot(data = mpg_group ) + 
+  geom_boxplot(mapping = aes(x = DriveWheels, y = Mpg,fill = MpgType )) +
+  labs(title = "DriveWheels affect fuel efficiency",
+       x = "DriveWheels",
+       y ="Mpg")
+```
+Based on the statistics and boxplot, front-wheel drive (fwd) is the most fuel-efficient because the average fuel consumption of CityMpg (miles per gallon in the city) and HighwayMpg (miles per gallon on the highway) is significantly higher than the other two. In addition, the dispersion of fwd is also the widest, showing that there are many different types of front-wheel drive vehicles with similar fuel consumption. Rear-wheel drive (rwd) is the least fuel-efficient because the average distance traveled per gallon is the lowest. 4-wheel drive (4wd) is in the middle because the fuel consumption is higher than rwd but lower than fwd. However, this may not be accurate in reality because the number of 4wd is small (based on the height of the boxplot). Also, HighwayMpg is always greater than CityMpg because on the highway car can run faster and do not have to stop suddenly.
+
+## 3.3 Filter out those engines in the dataset that have trouble or are suspected of having trouble; what are the top 5 most common troubles related to the engines? Do the troubles differ between engine types?
+```{r}
+# Join 3 dataset
+full_df <- maint_df %>%
+  left_join(auto_df, by = "PlateNumber") %>%
+  left_join(engine_df_clean, by = "EngineModel")
+
+# Filter engine fault (ErrorCodes = 1)
+engine_troubles_df <- full_df %>%
+  filter(ErrorCodes == "1")
+
+# Recheck if it is equal to 1
+print(engine_troubles_df)
+
+# Find the top 5 most common errors
+top_5_troubles <- engine_troubles_df %>%
+  count(Troubles) %>%             # Count the number of each trouble
+  arrange(desc(n)) %>%            # Sort in descending order
+  head(5) %>%
+  pull(Troubles)
+
+print(top_5_troubles)
+
+# Extract data of these 5 (Do 5 troubles differ between engine types?)
+top_5_df <- engine_troubles_df %>%
+  filter(Troubles %in% top_5_troubles)
+print(top_5_df)
+
+# Plotting 5 trouble with different type of engine to see if it is different
+ggplot(top_5_df) +
+  geom_bar(aes(x = EngineType, fill = Troubles), position = "fill") + # return % for comparison
+  labs(title = " Distribution of top 5 most common engines troubles ",
+       x = "Engine Type",
+       y = "Percentage",
+       fill = "Troubles")
+
+# Chi-squared test
+# H0: There is no difference; H1: There is differences
+# Contigency table
+table_troubles <- table(top_5_df$EngineType, top_5_df$Troubles)
+print(table_troubles)
+# Chi-squared test
+test_result <- chisq.test(table_troubles)
+print(test_result)
+```
+Because p-value = 0.6312 > 0.05, we cannot reject H0. Therefore, troubles do not differ between engine types
+
+# Question 4
+## 4.1 Write the code to show which error type (ErrorCodes) occurs most frequently
+```{r}
+mostly_troubles <- engine_troubles_df %>%
+  count(Troubles) %>%           
+  arrange(desc(n)) %>%            
+  head(1) %>%                        
+  pull(Troubles)
+print(mostly_troubles)
+```
+
+## 4.2 Write the code to analyze the factors that might influence the maintenance methods (Urgent care, Adjustment, Replacement) for the trouble vehicles (confirmed or suspected) in the dataset. Any factors in the dataset, such as BodyStyles, FuelTypes, and ErrorCodes, can be considered. Pick 2 of the factors and explain if there is a trend that explains the variation
+```{r}
+# Filter out vehicles with ErrorCodes = 0
+vehicles_trouble <- full_df %>%
+  filter(ErrorCodes != "0")
+
+# Factor 1: ErrorCodes
+ggplot(vehicles_trouble) +
+geom_bar(mapping = aes(x = ErrorCodes, fill = Methods), position = "fill") +
+  labs(title = "Ratio of Maintenance Methods by Error Codes",
+       x = "Error Codes",
+       y = "Percentage")
+
+# Factor 2: FuelTypes
+ggplot(vehicles_trouble) +
+geom_bar(mapping = aes(x = FuelTypes, fill = Methods), position = "fill") + # fill về tỉ lệ 1
+  labs(title = "Ratio of Maintenance Methods by Fuel Types",
+       x = "Fuel Types",
+       y = "Percentage")
+
+```
+
+Factor 1: Urgent care appears to only occur in other vehicle component fails (error -1) with 15%. While the engine failure group (error 1) is mainly handled by adjustment (50%) and replacement (50%). This indicates error -1 such as brake usually affect directly to the safety of driver, so it is classified as urgent, while engine errors (error 1) are often technical failures requiring component replacement.
+
+Factor 2: Diesel engine has higher probability of replacement while gas engine has higher adjustment ratio. This may suggest that problems on diesel vehicles are generally more complicated or that diesel engine parts that fail are more difficult to repair than gas engines, thus requiring more frequent replacement.
+
